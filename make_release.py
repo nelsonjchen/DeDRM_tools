@@ -11,6 +11,7 @@ from __future__ import print_function
 
 import os
 import shutil
+import subprocess
 
 
 DEDRM_SRC_DIR = 'dedrm_src'
@@ -48,6 +49,26 @@ def make_windows_app():
     shutil.copytree(DEDRM_SRC_DIR, core_dir)
 
 
+def make_standalone_windows_app():
+    contrib_dir = os.path.join(CONTRIB_BASE, 'windows_standalone')
+
+    build_dir = os.path.join(BUILD_BASE, 'DeDRM_Standalone_Windows_Application')
+
+    cmd = ("pyinstaller "
+           "-y "
+           "--workpath=pyi_build "
+           "--distpath=" + build_dir + " "
+           + contrib_dir + "\DeDRM_App.spec").split()
+
+    # STDERR is redirected to STDOUT. Printing any STDERR in Appveyor results in an error during build.
+    subprocess.call(cmd, stderr=subprocess.STDOUT)
+
+    # Some distributions of Python "read-only"-erize their files. (e.g. ActiveState)
+    # Decontaminate the build of them if this is built using those distributions.
+    subprocess.call(('attrib -R ' + build_dir + '\\* /S').split(), stderr=subprocess.STDOUT)
+    shutil.copy(os.path.join(contrib_dir, 'DeDRM_Standalone_App_ReadMe.txt'), build_dir)
+
+
 def make_macos_app():
     macos_app_dir = os.path.join(SHELLS_BASE, 'DeDRM_Macintosh_Application')
     core_dir = os.path.join(macos_app_dir, 'DeDRM.app', 'Contents', 'Resources')
@@ -69,6 +90,9 @@ def make_macos_app():
 def make_release(version):
     make_calibre_plugin()
     make_windows_app()
+    # PyInstaller only supports building on the target platform for the target platform.
+    if sys.platform == "win32":
+        make_standalone_windows_app()
     make_macos_app()
     make_obok_plugin()
 
